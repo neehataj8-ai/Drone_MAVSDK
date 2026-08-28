@@ -1,11 +1,27 @@
-import cv2
-
 from camera import Camera
 from detector import Detector
+from tracker import Tracker
+from target import TargetSelector
+from distance import DistanceEstimator
+from safety import SafetyAnalyzer
+from visualizer import Visualizer
+from logger import Logger
+from gimbal import GimbalController
 
-camera = Camera()
+import cv2
+
+SOURCE = 0   # Replace with RTSP URL on Jetson
+
+camera = Camera(SOURCE)
 
 detector = Detector()
+tracker = Tracker()
+selector = TargetSelector()
+distance = DistanceEstimator()
+safety = SafetyAnalyzer()
+visualizer = Visualizer()
+logger = Logger()
+gimbal = GimbalController()
 
 while True:
 
@@ -16,11 +32,33 @@ while True:
 
     results = detector.detect(frame)
 
-    annotated_frame = results[0].plot()
+    people = tracker.update(results)
 
-    cv2.imshow("SAFE_DISTANCE_M", annotated_frame)
+    for person in people:
 
-    if cv2.waitKey(1) & 0xFF == ord("q"):
+        x1, y1, x2, y2 = person["box"]
+
+        person["center"] = (
+            (x1+x2)/2,
+            (y1+y2)/2
+        )
+
+        person["distance"] = distance.estimate(person["box"])
+
+    target = selector.select(people)
+
+    gimbal.track(target)
+
+    violations = safety.check(people)
+
+    if violations:
+        logger.log(f"Violations: {violations}")
+
+    frame = visualizer.draw(frame, people, target)
+
+    cv2.imshow("SAFE_DISTANCE_M", frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
 camera.release()

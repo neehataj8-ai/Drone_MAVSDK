@@ -3,17 +3,14 @@ from ultralytics import YOLO
 class Detector:
 
     def __init__(self):
-        print("Loading YOLO model...")
 
         self.model = YOLO("models/yolo11n.pt")
 
-        print("YOLO Ready!")
-
     def detect(self, frame):
 
-        results = self.model(
+        return self.model(
             frame,
+            classes=[0],
+            conf=0.5,
             verbose=False
         )
-
-        return results
